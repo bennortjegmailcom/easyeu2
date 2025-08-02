@@ -1,62 +1,62 @@
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 
 const responseSchema = {
-    type: Type.OBJECT,
+    type: "OBJECT",
     properties: {
         equipmentList: {
-            type: Type.ARRAY,
+            type: "ARRAY",
             description: "A list of unique equipment names found in the data.",
-            items: { type: Type.STRING }
+            items: { type: "STRING" }
         },
         systemTypes: {
-            type: Type.ARRAY,
+            type: "ARRAY",
             description: "A list of unique system types found in the data.",
-            items: { type: Type.STRING }
+            items: { type: "STRING" }
         },
         faultTypes: {
-            type: Type.ARRAY,
+            type: "ARRAY",
             description: "A list of unique fault types found in the data.",
-            items: { type: Type.STRING }
+            items: { type: "STRING" }
         },
         sections: {
-            type: Type.ARRAY,
+            type: "ARRAY",
             description: "A list of unique responsible sections found in the data, each with a name and a hex color.",
             items: {
-                type: Type.OBJECT,
+                type: "OBJECT",
                 properties: {
-                    name: { type: Type.STRING },
-                    color: { type: Type.STRING, description: "A unique, visually appealing hex color code for the section."}
+                    name: { type: "STRING" },
+                    color: { type: "STRING", description: "A unique, visually appealing hex color code for the section."}
                 },
                 required: ["name", "color"]
             }
         },
         equipmentRelations: {
-            type: Type.ARRAY,
+            type: "ARRAY",
             description: "The main list of relationships, grouped by equipment and responsible section.",
             items: {
-                type: Type.OBJECT,
+                type: "OBJECT",
                 properties: {
                     id: { 
-                        type: Type.STRING,
+                        type: "STRING",
                         description: "A unique ID for the relation, typically a timestamp."
                     },
                     equipment: {
-                        type: Type.STRING,
+                        type: "STRING",
                         description: "The slug-cased version of the equipment name (e.g., 'Loader 1' becomes 'loader-1')."
                     },
                     section: {
-                        type: Type.STRING,
+                        type: "STRING",
                         description: "The responsible section for this group of systems/faults."
                     },
                     systems: {
-                        type: Type.ARRAY,
+                        type: "ARRAY",
                         description: "All systems associated with this equipment and section.",
-                        items: { type: Type.STRING }
+                        items: { type: "STRING" }
                     },
                     faults: {
-                        type: Type.ARRAY,
+                        type: "ARRAY",
                         description: "All faults associated with this equipment and section.",
-                        items: { type: Type.STRING }
+                        items: { type: "STRING" }
                     }
                 },
                 required: ['id', 'equipment', 'section', 'systems', 'faults']
