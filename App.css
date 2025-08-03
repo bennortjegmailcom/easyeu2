@@ -1,0 +1,66 @@
+/* General App styling */
+.App {
+  text-align: center;
+  font-family: sans-serif;
+}
+
+.App-header {
+  background-color: #282c34;
+  padding: 20px;
+  color: white;
+  margin-bottom: 20px;
+}
+
+/* Relationship Builder container */
+.relationship-builder {
+  display: flex;
+  justify-content: space-around;
+  padding: 20px;
+  gap: 20px;
+}
+
+/* Individual section styling */
+.builder-section {
+  flex: 1;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 15px;
+  background-color: #f9f9f9;
+  height: 70vh; /* Fixed height for all sections */
+  overflow-y: auto; /* Allow scrolling within sections */
+}
+
+.builder-section h2 {
+  margin-top: 0;
+  font-size: 1.2em;
+  border-bottom: 2px solid #eee;
+  padding-bottom: 10px;
+  margin-bottom: 15px;
+}
+
+/* Item block styling */
+.item-block {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  margin-bottom: 8px;
+  background-color: #fff;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.item-block:hover {
+  background-color: #f0f0f0;
+}
+
+.item-block input[type="checkbox"] {
+  margin-right: 10px;
+  width: 18px;
+  height: 18px;
+}
+
+.item-block label {
+  flex-grow: 1;
+  text-align: left;
+}
