@@ -1616,7 +1616,7 @@
         // --- BULK ADD ---
         function addItemsFromList(textareaId, list, itemType, renderFn, extraRenderFns = []) {
             const textarea = document.getElementById(textareaId);
-            const items = textarea.value.split('\\n').map(s => s.trim()).filter(Boolean);
+            const items = textarea.value.split('\n').map(s => s.trim()).filter(Boolean);
             if (items.length === 0) {
                 alert(`Please paste a list of ${itemType}s.`);
                 return;
