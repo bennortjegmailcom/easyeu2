@@ -889,22 +889,22 @@
                             <h4>Equipment Management</h4>
                             <div class="admin-list-container" id="admin-equipment-list"></div>
                             <div class="add-item-form">
-                                <input type="text" id="new-equipment-name" placeholder="New equipment name" class="search-input">
-                                <button id="add-equipment-btn" class="btn-primary">Add Equipment</button>
+                                <textarea id="new-equipment-list" placeholder="Paste a list of equipment, one per line." class="search-input" rows="5"></textarea>
+                                <button id="add-equipment-list-btn" class="btn-primary">Add Equipment from List</button>
                             </div>
                         
                             <h4 style="margin-top: 20px;">System Types Management</h4>
                             <div class="admin-list-container" id="admin-systems-list"></div>
                             <div class="add-item-form">
-                                <input type="text" id="new-system-name" placeholder="New system type" class="search-input">
-                                <button id="add-system-btn" class="btn-primary">Add System</button>
+                                <textarea id="new-system-list" placeholder="Paste a list of system types, one per line." class="search-input" rows="5"></textarea>
+                                <button id="add-system-list-btn" class="btn-primary">Add Systems from List</button>
                             </div>
                         
                             <h4 style="margin-top: 20px;">Fault Types Management</h4>
                             <div class="admin-list-container" id="admin-faults-list"></div>
                             <div class="add-item-form">
-                                <input type="text" id="new-fault-name" placeholder="New fault type" class="search-input">
-                                <button id="add-fault-btn" class="btn-primary">Add Fault</button>
+                                <textarea id="new-fault-list" placeholder="Paste a list of fault types, one per line." class="search-input" rows="5"></textarea>
+                                <button id="add-fault-list-btn" class="btn-primary">Add Faults from List</button>
                             </div>
                         </div>
                     </div>
@@ -1113,9 +1113,9 @@
             });
             
             // Admin: Data Manager
-            document.getElementById('add-equipment-btn').addEventListener('click', addEquipmentItem);
-            document.getElementById('add-system-btn').addEventListener('click', addSystemType);
-            document.getElementById('add-fault-btn').addEventListener('click', addFaultType);
+            document.getElementById('add-equipment-list-btn').addEventListener('click', addEquipmentList);
+            document.getElementById('add-system-list-btn').addEventListener('click', addSystemList);
+            document.getElementById('add-fault-list-btn').addEventListener('click', addFaultList);
             document.getElementById('admin-equipment-list').addEventListener('click', e => handleAdminListClick(e, 'equipment', 'deleteEquipmentItem'));
             document.getElementById('admin-systems-list').addEventListener('click', e => handleAdminListClick(e, 'system', 'deleteSystemType'));
             document.getElementById('admin-faults-list').addEventListener('click', e => handleAdminListClick(e, 'fault', 'deleteFaultType'));
@@ -1613,23 +1613,71 @@
             saveDataToLocalStorage();
         }
 
-        // Equipment
-        function addEquipmentItem() {
-            const input = document.getElementById('new-equipment-name');
-            const name = input.value.trim();
-            if (name && !equipmentList.find(e => e.toLowerCase() === name.toLowerCase())) {
-                equipmentList.push(name);
-                equipmentList.sort();
-                renderEquipmentAdminList();
-                populateAllEquipmentDropdowns();
-                createTimelineGrid('equipment-rows', true);
-                updateMeetingView();
-                updateRelationsStats();
-                input.value = '';
+        // --- BULK ADD ---
+        function addItemsFromList(textareaId, list, itemType, renderFn, extraRenderFns = []) {
+            const textarea = document.getElementById(textareaId);
+            const items = textarea.value.split('\\n').map(s => s.trim()).filter(Boolean);
+            if (items.length === 0) {
+                alert(`Please paste a list of ${itemType}s.`);
+                return;
+            }
+
+            let addedCount = 0;
+            let duplicateCount = 0;
+            const lowerCaseList = list.map(i => i.toLowerCase());
+
+            items.forEach(item => {
+                if (lowerCaseList.includes(item.toLowerCase())) {
+                    duplicateCount++;
+                } else {
+                    list.push(item);
+                    lowerCaseList.push(item.toLowerCase());
+                    addedCount++;
+                }
+            });
+
+            if (addedCount > 0) {
+                list.sort();
+                renderFn();
+                extraRenderFns.forEach(fn => fn());
                 saveDataToLocalStorage();
-            } else alert(name ? 'This equipment already exists.' : 'Please enter an equipment name.');
+                textarea.value = '';
+            }
+
+            alert(`${addedCount} new ${itemType}(s) added.\n${duplicateCount} duplicate(s) ignored.`);
         }
 
+        function addEquipmentList() {
+            addItemsFromList(
+                'new-equipment-list',
+                equipmentList,
+                'equipment',
+                renderEquipmentAdminList,
+                [populateAllEquipmentDropdowns, () => createTimelineGrid('equipment-rows', true), updateMeetingView, updateRelationsStats]
+            );
+        }
+
+        function addSystemList() {
+            addItemsFromList(
+                'new-system-list',
+                systemTypes,
+                'system type',
+                renderSystemsAdminList,
+                [populateBuilderGrids]
+            );
+        }
+
+        function addFaultList() {
+            addItemsFromList(
+                'new-fault-list',
+                faultTypes,
+                'fault type',
+                renderFaultsAdminList,
+                [populateBuilderGrids]
+            );
+        }
+
+        // Equipment
         function deleteEquipmentItem(index) {
             const nameToDelete = equipmentList[index];
             if (confirm(`Are you sure you want to delete "${nameToDelete}"? This will also remove any relations and bookings associated with it.`)) {
@@ -1648,23 +1696,6 @@
         }
 
         // System Types
-        function addSystemType() {
-            const input = document.getElementById('new-system-name');
-            const name = input.value.trim();
-            if (name && !systemTypes.find(s => s.toLowerCase() === name.toLowerCase())) {
-                systemTypes.push(name);
-                systemTypes.sort();
-                renderSystemsAdminList();
-                populateBuilderGrids();
-                input.value = '';
-                saveDataToLocalStorage();
-                return name;
-            } else {
-                alert(name ? 'This system type already exists.' : 'Please enter a system type name.');
-                return null;
-            }
-        }
-
         function deleteSystemType(index) {
             const nameToDelete = systemTypes[index];
             if (confirm(`Are you sure you want to delete system type "${nameToDelete}"? It will be removed from all relations.`)) {
@@ -1680,23 +1711,6 @@
         }
 
         // Fault Types
-        function addFaultType() {
-            const input = document.getElementById('new-fault-name');
-            const name = input.value.trim();
-            if (name && !faultTypes.find(f => f.toLowerCase() === name.toLowerCase())) {
-                faultTypes.push(name);
-                faultTypes.sort();
-                renderFaultsAdminList();
-                populateBuilderGrids();
-                input.value = '';
-                saveDataToLocalStorage();
-                return name;
-            } else {
-                alert(name ? 'This fault type already exists.' : 'Please enter a fault type name.');
-                return null;
-            }
-        }
-
         function deleteFaultType(index) {
             const nameToDelete = faultTypes[index];
             if (confirm(`Are you sure you want to delete fault type "${nameToDelete}"? It will be removed from all relations.`)) {
