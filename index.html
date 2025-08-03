@@ -915,8 +915,8 @@
                                 <div class="builder-form">
                                     <div class="form-row">
                                         <div class="form-group">
-                                            <label>Equipment</label>
-                                            <select id="builder-equipment">
+                                            <label>Equipment (hold Ctrl/Cmd to select multiple)</label>
+                                            <select id="builder-equipment" multiple size="5">
                                                 <option value="">Select Equipment</option>
                                             </select>
                                         </div>
@@ -1492,19 +1492,23 @@
         }
 
         function updateBuilderPreview() {
-            const equipment = document.getElementById('builder-equipment').value;
+            const selectedEquipment = Array.from(document.getElementById('builder-equipment').selectedOptions).map(opt => opt.value);
             const section = document.getElementById('builder-section').value;
             const selectedSystems = Array.from(document.querySelectorAll('.systems-grid input:checked')).map(cb => cb.value);
             const selectedFaults = Array.from(document.querySelectorAll('.faults-grid input:checked')).map(cb => cb.value);
             const preview = document.getElementById('builder-preview-content');
-            
-            if (!equipment && !section && selectedSystems.length === 0 && selectedFaults.length === 0) {
+
+            if (selectedEquipment.length === 0 && !section && selectedSystems.length === 0 && selectedFaults.length === 0) {
                 preview.innerHTML = '<p>Select equipment and configuration to see preview</p>';
                 return;
             }
-            const equipmentName = (equipmentList.find(e => e.toLowerCase().replace(/\s+/g, '-') === equipment) || 'Not selected');
+
+            const equipmentNames = selectedEquipment.map(slug =>
+                equipmentList.find(e => e.toLowerCase().replace(/\s+/g, '-') === slug) || slug
+            ).join(', ');
+
             preview.innerHTML = `
-                <div class="preview-item"><span class="preview-label">Equipment:</span> <span class="preview-value">${equipmentName}</span></div>
+                <div class="preview-item"><span class="preview-label">Equipment:</span> <span class="preview-value">${equipmentNames || 'Not selected'}</span></div>
                 <div class="preview-item"><span class="preview-label">Section:</span> <span class="preview-value">${section || 'Not selected'}</span></div>
                 <div class="preview-item"><span class="preview-label">Systems:</span> <span class="preview-value">${selectedSystems.join(', ') || 'None'}</span></div>
                 <div class="preview-item"><span class="preview-label">Faults:</span> <span class="preview-value">${selectedFaults.join(', ') || 'None'}</span></div>
@@ -1946,23 +1950,33 @@
 
         // --- RELATIONS BUILDER & MANAGER ---
         function saveBuilderRelation() {
-            const equipment = document.getElementById('builder-equipment').value;
+            const selectedEquipment = Array.from(document.getElementById('builder-equipment').selectedOptions).map(opt => opt.value);
             const section = document.getElementById('builder-section').value;
             const selectedSystems = Array.from(document.querySelectorAll('.systems-grid input:checked')).map(cb => cb.value);
             const selectedFaults = Array.from(document.querySelectorAll('.faults-grid input:checked')).map(cb => cb.value);
 
-            if (!equipment || !section || selectedSystems.length === 0 || selectedFaults.length === 0) {
-                alert('Please fill all fields and select at least one system and fault.');
+            if (selectedEquipment.length === 0 || !section || selectedSystems.length === 0 || selectedFaults.length === 0) {
+                alert('Please select at least one equipment, a section, and at least one system and fault.');
                 return;
             }
+
             const editingId = document.getElementById('builder-equipment').dataset.editingId;
             if (editingId) {
-                const index = equipmentRelations.findIndex(r => r.id === editingId);
-                if (index !== -1) equipmentRelations[index] = { ...equipmentRelations[index], equipment, section, systems: selectedSystems, faults: selectedFaults };
-            } else {
-                equipmentRelations.push({ id: Date.now().toString(), equipment, section, systems: selectedSystems, faults: selectedFaults });
+                alert('Bulk editing is not supported. Please edit relations one by one from the manager grid.');
+                return;
             }
-            alert(`Relation ${editingId ? 'updated' : 'created'} successfully`);
+
+            selectedEquipment.forEach(equipment => {
+                equipmentRelations.push({
+                    id: `${Date.now()}-${Math.random()}`, // Add random part to ensure uniqueness in loop
+                    equipment,
+                    section,
+                    systems: selectedSystems,
+                    faults: selectedFaults
+                });
+            });
+
+            alert(`${selectedEquipment.length} new relation(s) created successfully.`);
             clearBuilder();
             updateRelationsGrid();
             updateRelationsStats();
