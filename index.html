@@ -915,10 +915,10 @@
                                 <div class="builder-form">
                                     <div class="form-row">
                                         <div class="form-group">
-                                            <label>Equipment (hold Ctrl/Cmd to select multiple)</label>
-                                            <select id="builder-equipment" multiple size="5">
-                                                <option value="">Select Equipment</option>
-                                            </select>
+                                            <label>Equipment</label>
+                                            <div id="equipment-grid" class="systems-grid">
+                                                <!-- Populated by JS -->
+                                            </div>
                                         </div>
                                         <div class="form-group">
                                             <label>Responsible Section</label>
@@ -933,20 +933,12 @@
                                         <div class="systems-grid">
                                             <!-- Populated by JS -->
                                         </div>
-                                        <div class="custom-system">
-                                            <input type="text" id="custom-system" placeholder="Add custom system type">
-                                            <button type="button" id="add-custom-system-btn">Add</button>
-                                        </div>
                                     </div>
         
                                     <div class="faults-builder">
                                         <label>Fault Types</label>
                                         <div class="faults-grid">
                                             <!-- Populated by JS -->
-                                        </div>
-                                        <div class="custom-fault">
-                                            <input type="text" id="custom-fault" placeholder="Add custom fault type">
-                                            <button type="button" id="add-custom-fault-btn">Add</button>
                                         </div>
                                     </div>
         
@@ -1121,12 +1113,10 @@
             document.getElementById('admin-faults-list').addEventListener('click', e => handleAdminListClick(e, 'fault', 'deleteFaultType'));
 
             // Admin: Builder
-            document.getElementById('builder-equipment').addEventListener('change', updateBuilderPreview);
+            document.getElementById('equipment-grid').addEventListener('change', updateBuilderPreview);
             document.getElementById('builder-section').addEventListener('change', updateBuilderPreview);
             document.querySelector('.systems-grid').addEventListener('change', updateBuilderPreview);
             document.querySelector('.faults-grid').addEventListener('change', updateBuilderPreview);
-            document.getElementById('add-custom-system-btn').addEventListener('click', addCustomSystem);
-            document.getElementById('add-custom-fault-btn').addEventListener('click', addCustomFault);
             document.getElementById('clear-builder-btn').addEventListener('click', clearBuilder);
             document.getElementById('save-relation-btn').addEventListener('click', saveBuilderRelation);
             
@@ -1375,15 +1365,19 @@
 
         function populateBuilderGrids() {
             const createGridItems = (container, items, prefix) => {
+                if (!container) return;
                 container.innerHTML = '';
                 items.forEach(item => {
-                    const id = `${prefix}-${item.toLowerCase().replace(/\s+/g, '-')}`;
+                    const slug = item.toLowerCase().replace(/\s+/g, '-');
+                    const id = `${prefix}-${slug}`;
                     const itemDiv = document.createElement('div');
                     itemDiv.className = `${prefix}-item`;
-                    itemDiv.innerHTML = `<input type="checkbox" id="${id}" value="${item}"><label for="${id}">${item}</label>`;
+                    // Use the slug for the value to be consistent
+                    itemDiv.innerHTML = `<input type="checkbox" id="${id}" value="${slug}"><label for="${id}">${item}</label>`;
                     container.appendChild(itemDiv);
                 });
             };
+            createGridItems(document.getElementById('equipment-grid'), equipmentList, 'equip');
             createGridItems(document.querySelector('.systems-grid'), systemTypes, 'sys');
             createGridItems(document.querySelector('.faults-grid'), faultTypes, 'fault');
         }
@@ -1492,7 +1486,7 @@
         }
 
         function updateBuilderPreview() {
-            const selectedEquipment = Array.from(document.getElementById('builder-equipment').selectedOptions).map(opt => opt.value);
+            const selectedEquipment = Array.from(document.querySelectorAll('#equipment-grid input:checked')).map(cb => cb.value);
             const section = document.getElementById('builder-section').value;
             const selectedSystems = Array.from(document.querySelectorAll('.systems-grid input:checked')).map(cb => cb.value);
             const selectedFaults = Array.from(document.querySelectorAll('.faults-grid input:checked')).map(cb => cb.value);
@@ -1950,7 +1944,7 @@
 
         // --- RELATIONS BUILDER & MANAGER ---
         function saveBuilderRelation() {
-            const selectedEquipment = Array.from(document.getElementById('builder-equipment').selectedOptions).map(opt => opt.value);
+            const selectedEquipment = Array.from(document.querySelectorAll('#equipment-grid input:checked')).map(cb => cb.value);
             const section = document.getElementById('builder-section').value;
             const selectedSystems = Array.from(document.querySelectorAll('.systems-grid input:checked')).map(cb => cb.value);
             const selectedFaults = Array.from(document.querySelectorAll('.faults-grid input:checked')).map(cb => cb.value);
@@ -1960,7 +1954,7 @@
                 return;
             }
 
-            const editingId = document.getElementById('builder-equipment').dataset.editingId;
+            const editingId = document.getElementById('equipment-grid').dataset.editingId;
             if (editingId) {
                 alert('Bulk editing is not supported. Please edit relations one by one from the manager grid.');
                 return;
@@ -2024,27 +2018,6 @@
             showAdminTab('builder');
         }
 
-        function addCustomSystem() {
-            const input = document.getElementById('custom-system');
-            const newSystem = addSystemType(); // Re-uses the main add function
-            if (newSystem) {
-                const checkbox = document.querySelector(`.systems-grid input[value="${newSystem}"]`);
-                if (checkbox) checkbox.checked = true;
-                updateBuilderPreview();
-            }
-            input.value = '';
-        }
-
-        function addCustomFault() {
-            const input = document.getElementById('custom-fault');
-            const newFault = addFaultType(); // Re-uses the main add function
-            if (newFault) {
-                const checkbox = document.querySelector(`.faults-grid input[value="${newFault}"]`);
-                if (checkbox) checkbox.checked = true;
-                updateBuilderPreview();
-            }
-            input.value = '';
-        }
 
         function exportData() {
             const dataToExport = { equipmentList, systemTypes, faultTypes, equipmentRelations, sections, bookings };
