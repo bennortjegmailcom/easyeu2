@@ -758,14 +758,6 @@
         }
 
     </style>
-<script type="importmap">
-{
-  "imports": {
-    "@google/genai": "https://esm.sh/@google/genai@^1.12.0"
-  }
-}
-</script>
-<link rel="stylesheet" href="/index.css">
 </head>
 <body>
     <div class="container">
@@ -781,7 +773,6 @@
                 <div class="tab active" data-tab="tracker">Tracker</div>
                 <div class="tab" data-tab="meeting">Meeting View</div>
                 <div class="tab" data-tab="admin">Admin</div>
-                <div class="tab" data-tab="compiler">Compiler</div>
             </div>
         </div>
 
@@ -802,26 +793,6 @@
             </div>
         </div>
         
-        <div id="compiler" class="view admin-panel">
-            <h2>AI Compiler</h2>
-            <p>Paste data from your spreadsheet (Excel, Google Sheets) below. The AI will attempt to compile it into the correct format for the application.</p>
-            <div class="compiler-layout">
-                <div class="compiler-input-section">
-                    <textarea id="compiler-input" placeholder="Paste your data here... The AI understands columns like: Equipment Name, System, Fault, Responsible Section."></textarea>
-                    <button id="generate-preview-btn" class="btn-primary">Generate & Preview</button>
-                </div>
-                <div class="compiler-output-section">
-                    <h3>Preview</h3>
-                    <pre id="compiler-output-preview">Awaiting data...</pre>
-                    <div id="compiler-status"></div>
-                    <div id="compiler-actions">
-                        <button id="compiler-download-btn" class="btn-secondary">Download JSON</button>
-                        <button id="compiler-apply-btn" class="btn-primary">Apply to App</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <div id="admin" class="view admin-panel">
             <h2>Admin Panel</h2>
              <div class="admin-tabs">
@@ -1013,7 +984,6 @@
     </div>
 
     <script type="module">
-        import { generateJsonFromText } from './index.tsx';
     
         // --- MASTER DATA ---
         let bookings = [];
@@ -1029,7 +999,6 @@
             { name: 'instrumentation', color: '#B5EAD7' },
             { name: 'management', color: '#C7CEEA' }
         ];
-        let compiledJsonData = null;
 
 
         // --- GLOBAL STATE ---
@@ -1129,11 +1098,6 @@
             document.getElementById('add-custom-fault-btn').addEventListener('click', addCustomFault);
             document.getElementById('clear-builder-btn').addEventListener('click', clearBuilder);
             document.getElementById('save-relation-btn').addEventListener('click', saveBuilderRelation);
-            
-            // AI Compiler
-            document.getElementById('generate-preview-btn').addEventListener('click', handleGeneratePreview);
-            document.getElementById('compiler-download-btn').addEventListener('click', downloadCompiledJson);
-            document.getElementById('compiler-apply-btn').addEventListener('click', applyCompiledJson);
         }
         
         function handleAdminListClick(event, type, deleteFnName) {
@@ -2176,74 +2140,7 @@
             saveDataToLocalStorage();
         }
 
-
-        // --- AI COMPILER FUNCTIONS ---
-        async function handleGeneratePreview() {
-            const inputText = document.getElementById('compiler-input').value;
-            const previewEl = document.getElementById('compiler-output-preview');
-            const statusEl = document.getElementById('compiler-status');
-            const actionsEl = document.getElementById('compiler-actions');
-            const generateBtn = document.getElementById('generate-preview-btn');
-
-            if (!inputText.trim()) {
-                alert('Please paste some data into the text area first.');
-                return;
-            }
-
-            previewEl.textContent = '';
-            statusEl.textContent = 'Generating... The AI is thinking. Please wait.';
-            actionsEl.style.display = 'none';
-            generateBtn.disabled = true;
-            compiledJsonData = null;
-
-            try {
-                const result = await generateJsonFromText(inputText);
-                if (result) {
-                    compiledJsonData = result; // Store the object
-                    previewEl.textContent = JSON.stringify(result, null, 2);
-                    statusEl.textContent = 'Preview generated successfully. Review the JSON below.';
-                    actionsEl.style.display = 'flex';
-                } else {
-                    throw new Error("AI did not return valid data.");
-                }
-            } catch (error) {
-                console.error("AI Generation Error:", error);
-                previewEl.textContent = `An error occurred: ${error.message}`;
-                statusEl.textContent = 'Failed to generate preview. Please check the console for details.';
-            } finally {
-                generateBtn.disabled = false;
-            }
-        }
-        
-        function downloadCompiledJson() {
-            if (!compiledJsonData) {
-                alert("No compiled data to download.");
-                return;
-            }
-            const dataStr = JSON.stringify(compiledJsonData, null, 2);
-            const blob = new Blob([dataStr], {type: 'application/json'});
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = 'compiled-relations.json';
-            link.click();
-            URL.revokeObjectURL(link.href);
-        }
-        
-        function applyCompiledJson() {
-            if (!compiledJsonData) {
-                alert("No compiled data to apply.");
-                return;
-            }
-            if (confirm("This will replace all current data in the application with the compiled data. Are you sure?")) {
-                // Add empty bookings array to be safe
-                const dataToApply = { ...compiledJsonData, bookings: [] };
-                applyData(dataToApply);
-                alert("Compiled data has been applied successfully!");
-                showTab('admin'); // Navigate to admin to see the new data
-            }
-        }
-
     </script>
-<script type="module" src="/index.tsx"></script>
+<script type="module" src="/index.ts"></script>
 </body>
 </html>
