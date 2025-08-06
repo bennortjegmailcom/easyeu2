@@ -957,6 +957,14 @@
                                 <input type="text" id="new-fault-name" placeholder="New fault type" class="search-input">
                                 <button id="add-fault-btn" class="btn-primary">Add Fault</button>
                             </div>
+
+                        <h4 style="margin-top: 20px;">Section Management</h4>
+                        <div class="admin-list-container" id="admin-sections-list"></div>
+                        <div class="add-item-form">
+                            <input type="text" id="new-section-name" placeholder="New section name" class="search-input">
+                            <input type="color" id="new-section-color" value="#C7CEEA">
+                            <button id="add-section-btn" class="btn-primary">Add Section</button>
+                        </div>
                         </div>
                     </div>
                     <div class="admin-grid-right">
@@ -1169,9 +1177,11 @@
             document.getElementById('add-equipment-btn').addEventListener('click', addEquipmentItem);
             document.getElementById('add-system-btn').addEventListener('click', addSystemType);
             document.getElementById('add-fault-btn').addEventListener('click', addFaultType);
+            document.getElementById('add-section-btn').addEventListener('click', addSectionItem);
             document.getElementById('admin-equipment-list').addEventListener('click', e => handleAdminListClick(e, 'equipment', 'deleteEquipmentItem'));
             document.getElementById('admin-systems-list').addEventListener('click', e => handleAdminListClick(e, 'system', 'deleteSystemType'));
             document.getElementById('admin-faults-list').addEventListener('click', e => handleAdminListClick(e, 'fault', 'deleteFaultType'));
+            document.getElementById('admin-sections-list').addEventListener('click', e => handleAdminListClick(e, 'section', 'deleteSectionItem'));
 
             // Admin: Builder
             document.getElementById('builder-equipment').addEventListener('change', updateBuilderPreview);
@@ -1197,7 +1207,8 @@
                 const deleteFunctions = {
                     deleteEquipmentItem: deleteEquipmentItem,
                     deleteSystemType: deleteSystemType,
-                    deleteFaultType: deleteFaultType
+                    deleteFaultType: deleteFaultType,
+                    deleteSectionItem: deleteSectionItem,
                 };
                 deleteFunctions[deleteFnName](index);
             } else if (button.dataset.action === 'save') {
@@ -1441,6 +1452,7 @@
             renderEquipmentAdminList();
             renderSystemsAdminList();
             renderFaultsAdminList();
+            renderSectionsAdminList();
         }
 
         function renderAdminList(containerId, items, type, deleteFnName) {
@@ -1493,6 +1505,44 @@
 
         function renderFaultsAdminList() {
             renderAdminList('admin-faults-list', faultTypes, 'fault', 'deleteFaultType');
+        }
+
+        function renderSectionsAdminList() {
+            const container = document.getElementById('admin-sections-list');
+            container.innerHTML = '';
+            if (sections.length === 0) {
+                container.innerHTML = '<p style="padding: 10px; color: #7f8c8d;">No sections yet.</p>';
+                return;
+            }
+            sections.forEach((section, index) => {
+                const listItem = document.createElement('div');
+                listItem.className = 'admin-list-item';
+
+                if (activeEdit && activeEdit.type === 'section' && activeEdit.index === index) {
+                    // Edit view
+                    listItem.innerHTML = `
+                        <input type="text" id="edit-input-section-name" value="${section.name}" class="admin-item-input" style="flex-grow: 0.5;">
+                        <input type="color" id="edit-input-section-color" value="${section.color}" class="admin-item-input" style="flex-grow: 0.5;">
+                        <div class="admin-item-actions">
+                            <button class="btn-grid btn-primary" data-action="save">Save</button>
+                            <button class="btn-grid btn-secondary" data-action="cancel">Cancel</button>
+                        </div>
+                    `;
+                } else {
+                    // Display view
+                    listItem.innerHTML = `
+                        <span class="admin-item-name">
+                            <span class="color-indicator" style="background-color: ${section.color};"></span>
+                            ${section.name}
+                        </span>
+                        <div class="admin-item-actions">
+                            <button class="btn-grid btn-edit-grid" data-action="edit">Edit</button>
+                            <button class="btn-grid btn-delete-grid" data-action="delete">Delete</button>
+                        </div>
+                    `;
+                }
+                container.appendChild(listItem);
+            });
         }
 
         function updateRelationsGrid() {
@@ -1631,64 +1681,100 @@
         }
 
         function saveItem(type, index) {
-            const input = document.getElementById(`edit-input-${type}`);
-            if (!input) return;
-            const newName = input.value.trim();
+            if (type === 'section') {
+                const nameInput = document.getElementById('edit-input-section-name');
+                const colorInput = document.getElementById('edit-input-section-color');
+                const newName = nameInput.value.trim();
+                const newColor = colorInput.value;
+                const oldSection = sections[index];
 
-            let list, oldName;
-            if (type === 'equipment') { list = equipmentList; } 
-            else if (type === 'system') { list = systemTypes; } 
-            else { list = faultTypes; }
-            oldName = list[index];
+                if (!newName) {
+                    alert("The section name cannot be empty.");
+                    return;
+                }
 
-            if (!newName) {
-                alert(`The ${type} name cannot be empty.`);
-                return;
-            }
+                if (newName.toLowerCase() !== oldSection.name.toLowerCase() && sections.find(s => s.name.toLowerCase() === newName.toLowerCase())) {
+                    alert("This section name already exists.");
+                    return;
+                }
 
-            if (newName.toLowerCase() !== oldName.toLowerCase() && list.find(item => item.toLowerCase() === newName.toLowerCase())) {
-                alert(`This ${type} name already exists.`);
-                return;
+                if (newName === oldSection.name && newColor === oldSection.color) {
+                    cancelEdit();
+                    return;
+                }
+
+                equipmentRelations.forEach(rel => {
+                    if (rel.section === oldSection.name) {
+                        rel.section = newName;
+                    }
+                });
+
+                sections[index] = { name: newName, color: newColor };
+                sections.sort((a,b) => a.name.localeCompare(b.name));
+
+                populateSectionDropdowns();
+                updateRelationsGrid();
+                renderBookingsOnTracker(); // To update colors
+            } else {
+                const input = document.getElementById(`edit-input-${type}`);
+                if (!input) return;
+                const newName = input.value.trim();
+
+                let list, oldName;
+                if (type === 'equipment') { list = equipmentList; }
+                else if (type === 'system') { list = systemTypes; }
+                else { list = faultTypes; }
+                oldName = list[index];
+
+                if (!newName) {
+                    alert(`The ${type} name cannot be empty.`);
+                    return;
+                }
+
+                if (newName.toLowerCase() !== oldName.toLowerCase() && list.find(item => item.toLowerCase() === newName.toLowerCase())) {
+                    alert(`This ${type} name already exists.`);
+                    return;
+                }
+
+                if (newName === oldName) {
+                    cancelEdit();
+                    return;
+                }
+
+                // Perform update
+                if (type === 'equipment') {
+                    const oldSlug = oldName.toLowerCase().replace(/\s+/g, '-');
+                    const newSlug = newName.toLowerCase().replace(/\s+/g, '-');
+                    list[index] = newName;
+                    equipmentRelations.forEach(rel => { if (rel.equipment === oldSlug) rel.equipment = newSlug; });
+                    bookings.forEach(b => { if (b.equipment === oldSlug) b.equipment = newSlug; });
+                } else if (type === 'system') {
+                    list[index] = newName;
+                    equipmentRelations.forEach(rel => {
+                        const sysIndex = rel.systems.findIndex(s => s.toLowerCase() === oldName.toLowerCase());
+                        if (sysIndex > -1) rel.systems[sysIndex] = newName;
+                    });
+                } else { // fault
+                    list[index] = newName;
+                    equipmentRelations.forEach(rel => {
+                        const faultIndex = rel.faults.findIndex(f => f.toLowerCase() === oldName.toLowerCase());
+                        if (faultIndex > -1) rel.faults[faultIndex] = newName;
+                    });
+                }
+
+                list.sort();
+                populateBuilderGrids();
+                updateRelationsGrid();
+
+                if (type === 'equipment') {
+                    populateAllEquipmentDropdowns();
+                    createTimelineGrid('equipment-rows', true);
+                    updateMeetingView();
+                }
             }
             
-            if (newName === oldName) {
-                cancelEdit();
-                return;
-            }
-
-            // Perform update
-            if (type === 'equipment') {
-                const oldSlug = oldName.toLowerCase().replace(/\s+/g, '-');
-                const newSlug = newName.toLowerCase().replace(/\s+/g, '-');
-                list[index] = newName;
-                equipmentRelations.forEach(rel => { if (rel.equipment === oldSlug) rel.equipment = newSlug; });
-                bookings.forEach(b => { if (b.equipment === oldSlug) b.equipment = newSlug; });
-            } else if (type === 'system') {
-                list[index] = newName;
-                equipmentRelations.forEach(rel => {
-                    const sysIndex = rel.systems.findIndex(s => s.toLowerCase() === oldName.toLowerCase());
-                    if (sysIndex > -1) rel.systems[sysIndex] = newName;
-                });
-            } else { // fault
-                list[index] = newName;
-                equipmentRelations.forEach(rel => {
-                    const faultIndex = rel.faults.findIndex(f => f.toLowerCase() === oldName.toLowerCase());
-                    if (faultIndex > -1) rel.faults[faultIndex] = newName;
-                });
-            }
-            
-            list.sort();
             activeEdit = null;
-            
             renderAllAdminLists();
-            populateBuilderGrids();
-            updateRelationsGrid();
-
-            if (type === 'equipment') {
-                populateAllEquipmentDropdowns();
-                createTimelineGrid('equipment-rows', true);
-                updateMeetingView();
-            }
             saveDataToLocalStorage();
         }
 
@@ -1720,6 +1806,39 @@
                 populateAllEquipmentDropdowns();
                 createTimelineGrid('equipment-rows', true);
                 updateMeetingView();
+                updateRelationsGrid();
+                updateRelationsStats();
+                saveDataToLocalStorage();
+            }
+        }
+
+        // Sections
+        function addSectionItem() {
+            const nameInput = document.getElementById('new-section-name');
+            const colorInput = document.getElementById('new-section-color');
+            const name = nameInput.value.trim();
+            const color = colorInput.value;
+
+            if (name && !sections.find(s => s.name.toLowerCase() === name.toLowerCase())) {
+                sections.push({ name, color });
+                sections.sort((a, b) => a.name.localeCompare(b.name));
+                renderSectionsAdminList();
+                populateSectionDropdowns();
+                updateRelationsStats();
+                nameInput.value = '';
+                saveDataToLocalStorage();
+            } else {
+                alert(name ? 'This section name already exists.' : 'Please enter a section name.');
+            }
+        }
+
+        function deleteSectionItem(index) {
+            const sectionToDelete = sections[index];
+            if (confirm(`Are you sure you want to delete section "${sectionToDelete.name}"? It will be removed from all relations.`)) {
+                sections.splice(index, 1);
+                equipmentRelations = equipmentRelations.filter(rel => rel.section !== sectionToDelete.name);
+                renderSectionsAdminList();
+                populateSectionDropdowns();
                 updateRelationsGrid();
                 updateRelationsStats();
                 saveDataToLocalStorage();
