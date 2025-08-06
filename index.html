@@ -4,6 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Equipment Utilization Tracker</title>
+    <script type="importmap">
+    {
+      "imports": {
+        "html2canvas": "https://esm.sh/html2canvas@1.4.1"
+      }
+    }
+    </script>
     <style>
         :root {
             --scrollbar-track: #f5f5f5;
@@ -22,6 +29,7 @@
             margin: 0;
             padding: 20px;
             background-color: #f5f5f5;
+            overflow-x: hidden; /* Prevent horizontal scroll on the body */
         }
 
         /* --- Custom Scrollbar Styles --- */
@@ -59,6 +67,8 @@
             display: flex;
             flex-direction: column;
             gap: 20px;
+            max-width: 1800px; /* Max width for very large screens */
+            margin: 0 auto;
         }
 
         .selection-info {
@@ -853,6 +863,7 @@
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                 <h2 style="margin: 0;">Morning Meeting Overview</h2>
                 <div style="display: flex; gap: 10px;">
+                    <button class="btn-secondary" id="export-jpg-btn">Export as JPG</button>
                     <button class="btn-secondary" id="export-txt-btn">Export as TXT</button>
                     <button class="btn-danger" id="clear-all-btn">Clear All</button>
                 </div>
@@ -1053,7 +1064,8 @@
     </div>
 
     <script type="module">
-    
+        import html2canvas from 'html2canvas';
+
         // --- MASTER DATA ---
         let bookings = [];
         let equipmentRelations = [];
@@ -1134,6 +1146,7 @@
             });
 
             // Meeting View
+            document.getElementById('export-jpg-btn').addEventListener('click', exportMeetingViewAsJpg);
             document.getElementById('export-txt-btn').addEventListener('click', exportMeetingViewAsTxt);
             document.getElementById('clear-all-btn').addEventListener('click', clearAllBookings);
 
@@ -2163,6 +2176,25 @@
             summaryEl.title = `Time: ${booking.startTime}-${getCalculatedEndTime(booking.endTime)}\nFault: ${booking.fault}\nComments: ${booking.comments || 'None'}`;
             summaryEl.addEventListener('click', () => showBookingDetails(booking.id));
             timeBlocksContainer.appendChild(summaryEl);
+        }
+
+        function exportMeetingViewAsJpg() {
+            const meetingTimeline = document.getElementById('meeting-timeline');
+            if (!meetingTimeline) return;
+
+            html2canvas(meetingTimeline, {
+                useCORS: true, // In case of external images
+                allowTaint: true,
+                scale: 2 // Higher scale for better resolution
+            }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = `meeting-overview-${new Date().toISOString().split('T')[0]}.jpg`;
+                link.href = canvas.toDataURL('image/jpeg', 0.9); // 0.9 is quality
+                link.click();
+            }).catch(err => {
+                console.error('Error exporting as JPG:', err);
+                alert('Could not export the meeting view. Please check the console for errors.');
+            });
         }
 
         function exportMeetingViewAsTxt() {
