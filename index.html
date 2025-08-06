@@ -75,6 +75,31 @@
             display: block;
         }
 
+        .timeline-toolbar {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        #timeline-view-select {
+            padding: 5px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+
+        .shift-hidden {
+            display: none !important;
+        }
+
+        .timeline-container.single-shift-view {
+             overflow-x: hidden;
+        }
+
+        .shift-section.shift-full-width {
+            width: 100%;
+        }
+
         .timeline-container {
             overflow-x: auto;
             background-color: white;
@@ -776,8 +801,18 @@
             </div>
         </div>
 
-        <div id="tracker" class="view active timeline-container">
-            <div class="equipment-rows" id="equipment-rows"></div>
+        <div id="tracker" class="view active">
+            <div class="timeline-toolbar">
+                <label for="timeline-view-select">View:</label>
+                <select id="timeline-view-select">
+                    <option value="24h" selected>24 Hour View</option>
+                    <option value="day">Day Shift (06-18)</option>
+                    <option value="night">Night Shift (18-06)</option>
+                </select>
+            </div>
+            <div class="timeline-container">
+                <div class="equipment-rows" id="equipment-rows"></div>
+            </div>
         </div>
 
         <div id="meeting" class="view">
@@ -1005,6 +1040,7 @@
         let selectedTimeBlocks = [];
         let selectedSystem = '';
         let activeEdit = null;
+        let timelineView = '24h';
 
 
         // --- INITIALIZATION ---
@@ -1039,6 +1075,7 @@
             document.addEventListener('mouseup', endSelection);
             
             // Main Tabs
+            document.getElementById('timeline-view-select').addEventListener('change', updateTimelineView);
             document.querySelector('.tabs').addEventListener('click', (e) => {
                 if (e.target.classList.contains('tab')) {
                     showTab(e.target.dataset.tab);
@@ -1234,18 +1271,19 @@
             label.dataset.equipment = name.toLowerCase().replace(/\s+/g, '-');
             rowContainer.appendChild(label);
 
-            const daySection = createShiftSection('Day Shift (6:00-18:00)', 6, 18, name, isInteractive);
+            const daySection = createShiftSection('Day Shift (6:00-18:00)', 6, 18, name, isInteractive, 'day');
             rowContainer.appendChild(daySection);
 
-            const nightSection = createShiftSection('Night Shift (18:00-6:00)', 18, 30, name, isInteractive);
+            const nightSection = createShiftSection('Night Shift (18:00-6:00)', 18, 30, name, isInteractive, 'night');
             rowContainer.appendChild(nightSection);
 
             return rowContainer;
         }
 
-        function createShiftSection(shiftTitle, startHour, endHour, equipment, isInteractive) {
+        function createShiftSection(shiftTitle, startHour, endHour, equipment, isInteractive, shiftType) {
             const section = document.createElement('div');
             section.className = 'shift-section';
+            section.dataset.shift = shiftType;
 
             const header = document.createElement('div');
             header.className = 'shift-header';
@@ -1453,6 +1491,36 @@
             document.getElementById('total-relations').textContent = equipmentRelations.length;
             document.getElementById('total-equipment').textContent = equipmentList.length;
             document.getElementById('total-sections').textContent = sections.length;
+        }
+
+        function updateTimelineView() {
+            timelineView = document.getElementById('timeline-view-select').value;
+
+            const equipmentRows = document.querySelectorAll('.equipment-row');
+            equipmentRows.forEach(row => {
+                const dayShift = row.querySelector('.shift-section[data-shift="day"]');
+                const nightShift = row.querySelector('.shift-section[data-shift="night"]');
+
+                // Reset classes
+                dayShift.classList.remove('shift-hidden', 'shift-full-width');
+                nightShift.classList.remove('shift-hidden', 'shift-full-width');
+
+                if (timelineView === 'day') {
+                    nightShift.classList.add('shift-hidden');
+                    dayShift.classList.add('shift-full-width');
+                } else if (timelineView === 'night') {
+                    dayShift.classList.add('shift-hidden');
+                    nightShift.classList.add('shift-full-width');
+                }
+            });
+
+            // Adjust the main container's class for scrolling behavior
+            const timelineContainer = document.getElementById('tracker').querySelector('.timeline-container');
+            if (timelineView === '24h') {
+                timelineContainer.classList.remove('single-shift-view');
+            } else {
+                timelineContainer.classList.add('single-shift-view');
+            }
         }
 
         function updateBuilderPreview() {

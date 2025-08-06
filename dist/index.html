@@ -75,6 +75,31 @@
             display: block;
         }
 
+        .timeline-toolbar {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        #timeline-view-select {
+            padding: 5px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+
+        .shift-hidden {
+            display: none !important;
+        }
+
+        .timeline-container.single-shift-view {
+             overflow-x: hidden;
+        }
+
+        .shift-section.shift-full-width {
+            width: 100%;
+        }
+
         .timeline-container {
             overflow-x: auto;
             background-color: white;
@@ -758,7 +783,7 @@
         }
 
     </style>
-  <script type="module" crossorigin src="/assets/index-CfFkNBZq.js"></script>
+  <script type="module" crossorigin src="/assets/index-DKFK7m8T.js"></script>
 </head>
 <body>
     <div class="container">
@@ -777,8 +802,18 @@
             </div>
         </div>
 
-        <div id="tracker" class="view active timeline-container">
-            <div class="equipment-rows" id="equipment-rows"></div>
+        <div id="tracker" class="view active">
+            <div class="timeline-toolbar">
+                <label for="timeline-view-select">View:</label>
+                <select id="timeline-view-select">
+                    <option value="24h" selected>24 Hour View</option>
+                    <option value="day">Day Shift (06-18)</option>
+                    <option value="night">Night Shift (18-06)</option>
+                </select>
+            </div>
+            <div class="timeline-container">
+                <div class="equipment-rows" id="equipment-rows"></div>
+            </div>
         </div>
 
         <div id="meeting" class="view">
