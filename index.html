@@ -4,8 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Equipment Utilization Tracker</title>
+    <script type="importmap">
+    {
+      "imports": {
+        "html2canvas": "https://esm.sh/html2canvas@1.4.1"
+      }
+    }
+    </script>
     <style>
         :root {
+            --scrollbar-track: #f5f5f5;
+            --scrollbar-thumb: #c1c1c1;
+            --scrollbar-thumb-hover: #a8a8a8;
             --mechanical: #FF9AA2;
             --electrical: #FFB7B2;
             --operations: #FFDAC1;
@@ -19,12 +29,46 @@
             margin: 0;
             padding: 20px;
             background-color: #f5f5f5;
+            overflow-x: hidden; /* Prevent horizontal scroll on the body */
+        }
+
+        /* --- Custom Scrollbar Styles --- */
+        /* For Firefox */
+        * {
+            scrollbar-width: auto;
+            scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+        }
+
+        /* For Chrome, Safari, and Edge */
+        ::-webkit-scrollbar {
+            width: 12px;
+            height: 12px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--scrollbar-track);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background-color: var(--scrollbar-thumb);
+            border-radius: 10px;
+            border: 3px solid var(--scrollbar-track);
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background-color: var(--scrollbar-thumb-hover);
+        }
+
+        html {
+            scrollbar-gutter: stable;
         }
 
         .container {
             display: flex;
             flex-direction: column;
             gap: 20px;
+            max-width: 1800px; /* Max width for very large screens */
+            margin: 0 auto;
         }
 
         .selection-info {
@@ -73,6 +117,31 @@
         
         .view.active {
             display: block;
+        }
+
+        .timeline-toolbar {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        #timeline-view-select {
+            padding: 5px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+
+        .shift-hidden {
+            display: none !important;
+        }
+
+        .timeline-container.single-shift-view {
+             overflow-x: hidden;
+        }
+
+        .shift-section.shift-full-width {
+            width: 100%;
         }
 
         .timeline-container {
@@ -758,14 +827,6 @@
         }
 
     </style>
-<script type="importmap">
-{
-  "imports": {
-    "@google/genai": "https://esm.sh/@google/genai@^1.12.0"
-  }
-}
-</script>
-<link rel="stylesheet" href="/index.css">
 </head>
 <body>
     <div class="container">
@@ -781,18 +842,28 @@
                 <div class="tab active" data-tab="tracker">Tracker</div>
                 <div class="tab" data-tab="meeting">Meeting View</div>
                 <div class="tab" data-tab="admin">Admin</div>
-                <div class="tab" data-tab="compiler">Compiler</div>
             </div>
         </div>
 
-        <div id="tracker" class="view active timeline-container">
-            <div class="equipment-rows" id="equipment-rows"></div>
+        <div id="tracker" class="view active">
+            <div class="timeline-toolbar">
+                <label for="timeline-view-select">View:</label>
+                <select id="timeline-view-select">
+                    <option value="24h" selected>24 Hour View</option>
+                    <option value="day">Day Shift (06-18)</option>
+                    <option value="night">Night Shift (18-06)</option>
+                </select>
+            </div>
+            <div class="timeline-container">
+                <div class="equipment-rows" id="equipment-rows"></div>
+            </div>
         </div>
 
         <div id="meeting" class="view">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                 <h2 style="margin: 0;">Morning Meeting Overview</h2>
                 <div style="display: flex; gap: 10px;">
+                    <button class="btn-secondary" id="export-jpg-btn">Export as JPG</button>
                     <button class="btn-secondary" id="export-txt-btn">Export as TXT</button>
                     <button class="btn-danger" id="clear-all-btn">Clear All</button>
                 </div>
@@ -802,26 +873,6 @@
             </div>
         </div>
         
-        <div id="compiler" class="view admin-panel">
-            <h2>AI Compiler</h2>
-            <p>Paste data from your spreadsheet (Excel, Google Sheets) below. The AI will attempt to compile it into the correct format for the application.</p>
-            <div class="compiler-layout">
-                <div class="compiler-input-section">
-                    <textarea id="compiler-input" placeholder="Paste your data here... The AI understands columns like: Equipment Name, System, Fault, Responsible Section."></textarea>
-                    <button id="generate-preview-btn" class="btn-primary">Generate & Preview</button>
-                </div>
-                <div class="compiler-output-section">
-                    <h3>Preview</h3>
-                    <pre id="compiler-output-preview">Awaiting data...</pre>
-                    <div id="compiler-status"></div>
-                    <div id="compiler-actions">
-                        <button id="compiler-download-btn" class="btn-secondary">Download JSON</button>
-                        <button id="compiler-apply-btn" class="btn-primary">Apply to App</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <div id="admin" class="view admin-panel">
             <h2>Admin Panel</h2>
              <div class="admin-tabs">
@@ -906,6 +957,14 @@
                                 <input type="text" id="new-fault-name" placeholder="New fault type" class="search-input">
                                 <button id="add-fault-btn" class="btn-primary">Add Fault</button>
                             </div>
+
+                        <h4 style="margin-top: 20px;">Section Management</h4>
+                        <div class="admin-list-container" id="admin-sections-list"></div>
+                        <div class="add-item-form">
+                            <input type="text" id="new-section-name" placeholder="New section name" class="search-input">
+                            <input type="color" id="new-section-color" value="#C7CEEA">
+                            <button id="add-section-btn" class="btn-primary">Add Section</button>
+                        </div>
                         </div>
                     </div>
                     <div class="admin-grid-right">
@@ -1013,8 +1072,8 @@
     </div>
 
     <script type="module">
-        import { generateJsonFromText } from './index.tsx';
-    
+        import html2canvas from 'html2canvas';
+
         // --- MASTER DATA ---
         let bookings = [];
         let equipmentRelations = [];
@@ -1029,13 +1088,13 @@
             { name: 'instrumentation', color: '#B5EAD7' },
             { name: 'management', color: '#C7CEEA' }
         ];
-        let compiledJsonData = null;
 
 
         // --- GLOBAL STATE ---
         let selectedTimeBlocks = [];
         let selectedSystem = '';
         let activeEdit = null;
+        let timelineView = '24h';
 
 
         // --- INITIALIZATION ---
@@ -1070,6 +1129,7 @@
             document.addEventListener('mouseup', endSelection);
             
             // Main Tabs
+            document.getElementById('timeline-view-select').addEventListener('change', updateTimelineView);
             document.querySelector('.tabs').addEventListener('click', (e) => {
                 if (e.target.classList.contains('tab')) {
                     showTab(e.target.dataset.tab);
@@ -1094,6 +1154,7 @@
             });
 
             // Meeting View
+            document.getElementById('export-jpg-btn').addEventListener('click', exportMeetingViewAsJpg);
             document.getElementById('export-txt-btn').addEventListener('click', exportMeetingViewAsTxt);
             document.getElementById('clear-all-btn').addEventListener('click', clearAllBookings);
 
@@ -1116,9 +1177,11 @@
             document.getElementById('add-equipment-btn').addEventListener('click', addEquipmentItem);
             document.getElementById('add-system-btn').addEventListener('click', addSystemType);
             document.getElementById('add-fault-btn').addEventListener('click', addFaultType);
+            document.getElementById('add-section-btn').addEventListener('click', addSectionItem);
             document.getElementById('admin-equipment-list').addEventListener('click', e => handleAdminListClick(e, 'equipment', 'deleteEquipmentItem'));
             document.getElementById('admin-systems-list').addEventListener('click', e => handleAdminListClick(e, 'system', 'deleteSystemType'));
             document.getElementById('admin-faults-list').addEventListener('click', e => handleAdminListClick(e, 'fault', 'deleteFaultType'));
+            document.getElementById('admin-sections-list').addEventListener('click', e => handleAdminListClick(e, 'section', 'deleteSectionItem'));
 
             // Admin: Builder
             document.getElementById('builder-equipment').addEventListener('change', updateBuilderPreview);
@@ -1129,11 +1192,6 @@
             document.getElementById('add-custom-fault-btn').addEventListener('click', addCustomFault);
             document.getElementById('clear-builder-btn').addEventListener('click', clearBuilder);
             document.getElementById('save-relation-btn').addEventListener('click', saveBuilderRelation);
-            
-            // AI Compiler
-            document.getElementById('generate-preview-btn').addEventListener('click', handleGeneratePreview);
-            document.getElementById('compiler-download-btn').addEventListener('click', downloadCompiledJson);
-            document.getElementById('compiler-apply-btn').addEventListener('click', applyCompiledJson);
         }
         
         function handleAdminListClick(event, type, deleteFnName) {
@@ -1149,7 +1207,8 @@
                 const deleteFunctions = {
                     deleteEquipmentItem: deleteEquipmentItem,
                     deleteSystemType: deleteSystemType,
-                    deleteFaultType: deleteFaultType
+                    deleteFaultType: deleteFaultType,
+                    deleteSectionItem: deleteSectionItem,
                 };
                 deleteFunctions[deleteFnName](index);
             } else if (button.dataset.action === 'save') {
@@ -1270,18 +1329,19 @@
             label.dataset.equipment = name.toLowerCase().replace(/\s+/g, '-');
             rowContainer.appendChild(label);
 
-            const daySection = createShiftSection('Day Shift (6:00-18:00)', 6, 18, name, isInteractive);
+            const daySection = createShiftSection('Day Shift (6:00-18:00)', 6, 18, name, isInteractive, 'day');
             rowContainer.appendChild(daySection);
 
-            const nightSection = createShiftSection('Night Shift (18:00-6:00)', 18, 30, name, isInteractive);
+            const nightSection = createShiftSection('Night Shift (18:00-6:00)', 18, 30, name, isInteractive, 'night');
             rowContainer.appendChild(nightSection);
 
             return rowContainer;
         }
 
-        function createShiftSection(shiftTitle, startHour, endHour, equipment, isInteractive) {
+        function createShiftSection(shiftTitle, startHour, endHour, equipment, isInteractive, shiftType) {
             const section = document.createElement('div');
             section.className = 'shift-section';
+            section.dataset.shift = shiftType;
 
             const header = document.createElement('div');
             header.className = 'shift-header';
@@ -1392,6 +1452,7 @@
             renderEquipmentAdminList();
             renderSystemsAdminList();
             renderFaultsAdminList();
+            renderSectionsAdminList();
         }
 
         function renderAdminList(containerId, items, type, deleteFnName) {
@@ -1446,6 +1507,44 @@
             renderAdminList('admin-faults-list', faultTypes, 'fault', 'deleteFaultType');
         }
 
+        function renderSectionsAdminList() {
+            const container = document.getElementById('admin-sections-list');
+            container.innerHTML = '';
+            if (sections.length === 0) {
+                container.innerHTML = '<p style="padding: 10px; color: #7f8c8d;">No sections yet.</p>';
+                return;
+            }
+            sections.forEach((section, index) => {
+                const listItem = document.createElement('div');
+                listItem.className = 'admin-list-item';
+
+                if (activeEdit && activeEdit.type === 'section' && activeEdit.index === index) {
+                    // Edit view
+                    listItem.innerHTML = `
+                        <input type="text" id="edit-input-section-name" value="${section.name}" class="admin-item-input" style="flex-grow: 0.5;">
+                        <input type="color" id="edit-input-section-color" value="${section.color}" class="admin-item-input" style="flex-grow: 0.5;">
+                        <div class="admin-item-actions">
+                            <button class="btn-grid btn-primary" data-action="save">Save</button>
+                            <button class="btn-grid btn-secondary" data-action="cancel">Cancel</button>
+                        </div>
+                    `;
+                } else {
+                    // Display view
+                    listItem.innerHTML = `
+                        <span class="admin-item-name">
+                            <span class="color-indicator" style="background-color: ${section.color};"></span>
+                            ${section.name}
+                        </span>
+                        <div class="admin-item-actions">
+                            <button class="btn-grid btn-edit-grid" data-action="edit">Edit</button>
+                            <button class="btn-grid btn-delete-grid" data-action="delete">Delete</button>
+                        </div>
+                    `;
+                }
+                container.appendChild(listItem);
+            });
+        }
+
         function updateRelationsGrid() {
             const gridBody = document.getElementById('relations-grid-body');
             const searchTerm = document.getElementById('search-relations').value.toLowerCase();
@@ -1489,6 +1588,36 @@
             document.getElementById('total-relations').textContent = equipmentRelations.length;
             document.getElementById('total-equipment').textContent = equipmentList.length;
             document.getElementById('total-sections').textContent = sections.length;
+        }
+
+        function updateTimelineView() {
+            timelineView = document.getElementById('timeline-view-select').value;
+
+            const equipmentRows = document.querySelectorAll('.equipment-row');
+            equipmentRows.forEach(row => {
+                const dayShift = row.querySelector('.shift-section[data-shift="day"]');
+                const nightShift = row.querySelector('.shift-section[data-shift="night"]');
+
+                // Reset classes
+                dayShift.classList.remove('shift-hidden', 'shift-full-width');
+                nightShift.classList.remove('shift-hidden', 'shift-full-width');
+
+                if (timelineView === 'day') {
+                    nightShift.classList.add('shift-hidden');
+                    dayShift.classList.add('shift-full-width');
+                } else if (timelineView === 'night') {
+                    dayShift.classList.add('shift-hidden');
+                    nightShift.classList.add('shift-full-width');
+                }
+            });
+
+            // Adjust the main container's class for scrolling behavior
+            const timelineContainer = document.getElementById('tracker').querySelector('.timeline-container');
+            if (timelineView === '24h') {
+                timelineContainer.classList.remove('single-shift-view');
+            } else {
+                timelineContainer.classList.add('single-shift-view');
+            }
         }
 
         function updateBuilderPreview() {
@@ -1552,64 +1681,100 @@
         }
 
         function saveItem(type, index) {
-            const input = document.getElementById(`edit-input-${type}`);
-            if (!input) return;
-            const newName = input.value.trim();
+            if (type === 'section') {
+                const nameInput = document.getElementById('edit-input-section-name');
+                const colorInput = document.getElementById('edit-input-section-color');
+                const newName = nameInput.value.trim();
+                const newColor = colorInput.value;
+                const oldSection = sections[index];
 
-            let list, oldName;
-            if (type === 'equipment') { list = equipmentList; } 
-            else if (type === 'system') { list = systemTypes; } 
-            else { list = faultTypes; }
-            oldName = list[index];
+                if (!newName) {
+                    alert("The section name cannot be empty.");
+                    return;
+                }
 
-            if (!newName) {
-                alert(`The ${type} name cannot be empty.`);
-                return;
-            }
+                if (newName.toLowerCase() !== oldSection.name.toLowerCase() && sections.find(s => s.name.toLowerCase() === newName.toLowerCase())) {
+                    alert("This section name already exists.");
+                    return;
+                }
 
-            if (newName.toLowerCase() !== oldName.toLowerCase() && list.find(item => item.toLowerCase() === newName.toLowerCase())) {
-                alert(`This ${type} name already exists.`);
-                return;
+                if (newName === oldSection.name && newColor === oldSection.color) {
+                    cancelEdit();
+                    return;
+                }
+
+                equipmentRelations.forEach(rel => {
+                    if (rel.section === oldSection.name) {
+                        rel.section = newName;
+                    }
+                });
+
+                sections[index] = { name: newName, color: newColor };
+                sections.sort((a,b) => a.name.localeCompare(b.name));
+
+                populateSectionDropdowns();
+                updateRelationsGrid();
+                renderBookingsOnTracker(); // To update colors
+            } else {
+                const input = document.getElementById(`edit-input-${type}`);
+                if (!input) return;
+                const newName = input.value.trim();
+
+                let list, oldName;
+                if (type === 'equipment') { list = equipmentList; }
+                else if (type === 'system') { list = systemTypes; }
+                else { list = faultTypes; }
+                oldName = list[index];
+
+                if (!newName) {
+                    alert(`The ${type} name cannot be empty.`);
+                    return;
+                }
+
+                if (newName.toLowerCase() !== oldName.toLowerCase() && list.find(item => item.toLowerCase() === newName.toLowerCase())) {
+                    alert(`This ${type} name already exists.`);
+                    return;
+                }
+
+                if (newName === oldName) {
+                    cancelEdit();
+                    return;
+                }
+
+                // Perform update
+                if (type === 'equipment') {
+                    const oldSlug = oldName.toLowerCase().replace(/\s+/g, '-');
+                    const newSlug = newName.toLowerCase().replace(/\s+/g, '-');
+                    list[index] = newName;
+                    equipmentRelations.forEach(rel => { if (rel.equipment === oldSlug) rel.equipment = newSlug; });
+                    bookings.forEach(b => { if (b.equipment === oldSlug) b.equipment = newSlug; });
+                } else if (type === 'system') {
+                    list[index] = newName;
+                    equipmentRelations.forEach(rel => {
+                        const sysIndex = rel.systems.findIndex(s => s.toLowerCase() === oldName.toLowerCase());
+                        if (sysIndex > -1) rel.systems[sysIndex] = newName;
+                    });
+                } else { // fault
+                    list[index] = newName;
+                    equipmentRelations.forEach(rel => {
+                        const faultIndex = rel.faults.findIndex(f => f.toLowerCase() === oldName.toLowerCase());
+                        if (faultIndex > -1) rel.faults[faultIndex] = newName;
+                    });
+                }
+
+                list.sort();
+                populateBuilderGrids();
+                updateRelationsGrid();
+
+                if (type === 'equipment') {
+                    populateAllEquipmentDropdowns();
+                    createTimelineGrid('equipment-rows', true);
+                    updateMeetingView();
+                }
             }
             
-            if (newName === oldName) {
-                cancelEdit();
-                return;
-            }
-
-            // Perform update
-            if (type === 'equipment') {
-                const oldSlug = oldName.toLowerCase().replace(/\s+/g, '-');
-                const newSlug = newName.toLowerCase().replace(/\s+/g, '-');
-                list[index] = newName;
-                equipmentRelations.forEach(rel => { if (rel.equipment === oldSlug) rel.equipment = newSlug; });
-                bookings.forEach(b => { if (b.equipment === oldSlug) b.equipment = newSlug; });
-            } else if (type === 'system') {
-                list[index] = newName;
-                equipmentRelations.forEach(rel => {
-                    const sysIndex = rel.systems.findIndex(s => s.toLowerCase() === oldName.toLowerCase());
-                    if (sysIndex > -1) rel.systems[sysIndex] = newName;
-                });
-            } else { // fault
-                list[index] = newName;
-                equipmentRelations.forEach(rel => {
-                    const faultIndex = rel.faults.findIndex(f => f.toLowerCase() === oldName.toLowerCase());
-                    if (faultIndex > -1) rel.faults[faultIndex] = newName;
-                });
-            }
-            
-            list.sort();
             activeEdit = null;
-            
             renderAllAdminLists();
-            populateBuilderGrids();
-            updateRelationsGrid();
-
-            if (type === 'equipment') {
-                populateAllEquipmentDropdowns();
-                createTimelineGrid('equipment-rows', true);
-                updateMeetingView();
-            }
             saveDataToLocalStorage();
         }
 
@@ -1641,6 +1806,39 @@
                 populateAllEquipmentDropdowns();
                 createTimelineGrid('equipment-rows', true);
                 updateMeetingView();
+                updateRelationsGrid();
+                updateRelationsStats();
+                saveDataToLocalStorage();
+            }
+        }
+
+        // Sections
+        function addSectionItem() {
+            const nameInput = document.getElementById('new-section-name');
+            const colorInput = document.getElementById('new-section-color');
+            const name = nameInput.value.trim();
+            const color = colorInput.value;
+
+            if (name && !sections.find(s => s.name.toLowerCase() === name.toLowerCase())) {
+                sections.push({ name, color });
+                sections.sort((a, b) => a.name.localeCompare(b.name));
+                renderSectionsAdminList();
+                populateSectionDropdowns();
+                updateRelationsStats();
+                nameInput.value = '';
+                saveDataToLocalStorage();
+            } else {
+                alert(name ? 'This section name already exists.' : 'Please enter a section name.');
+            }
+        }
+
+        function deleteSectionItem(index) {
+            const sectionToDelete = sections[index];
+            if (confirm(`Are you sure you want to delete section "${sectionToDelete.name}"? It will be removed from all relations.`)) {
+                sections.splice(index, 1);
+                equipmentRelations = equipmentRelations.filter(rel => rel.section !== sectionToDelete.name);
+                renderSectionsAdminList();
+                populateSectionDropdowns();
                 updateRelationsGrid();
                 updateRelationsStats();
                 saveDataToLocalStorage();
@@ -2099,6 +2297,25 @@
             timeBlocksContainer.appendChild(summaryEl);
         }
 
+        function exportMeetingViewAsJpg() {
+            const meetingTimeline = document.getElementById('meeting-timeline');
+            if (!meetingTimeline) return;
+
+            html2canvas(meetingTimeline, {
+                useCORS: true, // In case of external images
+                allowTaint: true,
+                scale: 2 // Higher scale for better resolution
+            }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = `meeting-overview-${new Date().toISOString().split('T')[0]}.jpg`;
+                link.href = canvas.toDataURL('image/jpeg', 0.9); // 0.9 is quality
+                link.click();
+            }).catch(err => {
+                console.error('Error exporting as JPG:', err);
+                alert('Could not export the meeting view. Please check the console for errors.');
+            });
+        }
+
         function exportMeetingViewAsTxt() {
             if (bookings.length === 0) {
                 alert('No bookings to export.');
@@ -2176,74 +2393,7 @@
             saveDataToLocalStorage();
         }
 
-
-        // --- AI COMPILER FUNCTIONS ---
-        async function handleGeneratePreview() {
-            const inputText = document.getElementById('compiler-input').value;
-            const previewEl = document.getElementById('compiler-output-preview');
-            const statusEl = document.getElementById('compiler-status');
-            const actionsEl = document.getElementById('compiler-actions');
-            const generateBtn = document.getElementById('generate-preview-btn');
-
-            if (!inputText.trim()) {
-                alert('Please paste some data into the text area first.');
-                return;
-            }
-
-            previewEl.textContent = '';
-            statusEl.textContent = 'Generating... The AI is thinking. Please wait.';
-            actionsEl.style.display = 'none';
-            generateBtn.disabled = true;
-            compiledJsonData = null;
-
-            try {
-                const result = await generateJsonFromText(inputText);
-                if (result) {
-                    compiledJsonData = result; // Store the object
-                    previewEl.textContent = JSON.stringify(result, null, 2);
-                    statusEl.textContent = 'Preview generated successfully. Review the JSON below.';
-                    actionsEl.style.display = 'flex';
-                } else {
-                    throw new Error("AI did not return valid data.");
-                }
-            } catch (error) {
-                console.error("AI Generation Error:", error);
-                previewEl.textContent = `An error occurred: ${error.message}`;
-                statusEl.textContent = 'Failed to generate preview. Please check the console for details.';
-            } finally {
-                generateBtn.disabled = false;
-            }
-        }
-        
-        function downloadCompiledJson() {
-            if (!compiledJsonData) {
-                alert("No compiled data to download.");
-                return;
-            }
-            const dataStr = JSON.stringify(compiledJsonData, null, 2);
-            const blob = new Blob([dataStr], {type: 'application/json'});
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = 'compiled-relations.json';
-            link.click();
-            URL.revokeObjectURL(link.href);
-        }
-        
-        function applyCompiledJson() {
-            if (!compiledJsonData) {
-                alert("No compiled data to apply.");
-                return;
-            }
-            if (confirm("This will replace all current data in the application with the compiled data. Are you sure?")) {
-                // Add empty bookings array to be safe
-                const dataToApply = { ...compiledJsonData, bookings: [] };
-                applyData(dataToApply);
-                alert("Compiled data has been applied successfully!");
-                showTab('admin'); // Navigate to admin to see the new data
-            }
-        }
-
     </script>
-<script type="module" src="/index.tsx"></script>
+<script type="module" src="/index.ts"></script>
 </body>
 </html>
